@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Journal — US100</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef;--card:#ffffff;--card2:#f9f8f5;
+  --border:#e4e2d8;--border2:#d0cec4;
+  --text:#1c1b18;--text2:#5a5750;--text3:#9a9790;
+  --green:#2a7a5a;--green-bg:#eaf5ee;--green-bd:#a8d8b8;
+  --red:#b83030;--red-bg:#fceaea;--red-bd:#e8a8a8;
+  --amber:#a06020;--amber-bg:#fdf3e3;--amber-bd:#e8c888;
+  --blue:#2a5888;--blue-bg:#eaf0f8;--blue-bd:#a8c0e0;
+  --r:10px;--rl:14px;
+  --mono:'DM Mono',monospace;--sans:'DM Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.6;min-height:100vh}
+.layout{max-width:680px;margin:0 auto;padding:1.5rem 1.25rem 5rem}
+
+/* SYNC */
+.sync-bar{height:3px;width:100%;position:fixed;top:0;left:0;z-index:200;background:transparent;transition:background 0.3s}
+.sync-bar.syncing{background:var(--amber)}
+.sync-bar.synced{background:var(--green)}
+.sync-bar.error{background:var(--red)}
+.sync-status{font-family:var(--mono);font-size:10px;color:var(--text3);display:flex;align-items:center;gap:5px}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text3)}
+.sync-dot.ok{background:var(--green)}
+.sync-dot.syncing{background:var(--amber);animation:pulse 1s infinite}
+.sync-dot.err{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* HEADER */
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1.25rem;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px;padding-top:10px}
+.header h1{font-size:17px;font-weight:600;letter-spacing:-0.02em}
+.header h1 span{color:var(--green)}
+.header-sub{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px}
+.header-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.clocks{display:flex;gap:14px}
+.clock-block{text-align:right}
+.clock-label{font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase}
+.clock-time{font-family:var(--mono);font-size:17px;font-weight:500;color:var(--text2);display:block;line-height:1.2}
+.clock-time.ny{color:var(--blue)}
+.clock-date{font-size:10px;color:var(--text3);font-family:var(--mono)}
+.clock-div{width:1px;background:var(--border)}
+
+/* MODE */
+.mode-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem}
+.mode-toggle{display:flex;background:var(--card);border:1px solid var(--border2);border-radius:30px;padding:3px}
+.mode-btn{padding:5px 16px;border-radius:24px;font-family:var(--mono);font-size:11px;font-weight:500;border:none;background:transparent;cursor:pointer;color:var(--text3);transition:all 0.2s}
+.mode-btn.live{background:var(--green);color:#fff}
+.mode-btn.bt{background:var(--amber);color:#fff}
+.mode-tag{font-family:var(--mono);font-size:10px;letter-spacing:0.06em;text-transform:uppercase}
+.mode-tag.live{color:var(--green)}
+.mode-tag.bt{color:var(--amber)}
+
+/* DASH */
+.dash{background:var(--card);border:1px solid var(--border);border-radius:var(--rl);padding:1rem 1.25rem;margin-bottom:10px}
+.dash-grid{display:grid;grid-template-columns:90px 1fr;gap:16px;align-items:center}
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.metric{background:var(--card2);border-radius:var(--r);padding:8px 10px;border:1px solid var(--border)}
+.metric-label{font-size:9px;font-family:var(--mono);color:var(--text3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:3px}
+.metric-val{font-family:var(--mono);font-size:16px;font-weight:500;color:var(--text2);line-height:1}
+.metric-val.pos{color:var(--green)}
+.metric-val.neg{color:var(--red)}
+.metric-sub{font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--mono)}
+.pie-legend{display:flex;gap:10px;margin-top:8px;justify-content:center}
+.pie-leg{display:flex;align-items:center;gap:4px;font-family:var(--mono);font-size:9px;color:var(--text3)}
+.pie-dot{width:7px;height:7px;border-radius:50%}
+
+/* CARD */
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--rl);padding:1.1rem 1.25rem;margin-bottom:10px}
+.card-label{font-family:var(--mono);font-size:9px;font-weight:500;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:.75rem;display:flex;align-items:center;gap:6px}
+.card-label::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--text3);flex-shrink:0}
+.card-label.cl-green::before{background:var(--green)}
+.card-label.cl-red::before{background:var(--red)}
+.card-label.cl-amber::before{background:var(--amber)}
+.card-label.cl-blue::before{background:var(--blue)}
+
+/* FORM */
+.row{display:grid;gap:10px;margin-bottom:10px}
+.c2{grid-template-columns:1fr 1fr}
+.c3{grid-template-columns:1fr 1fr 1fr}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10px;font-weight:500;color:var(--text3);font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase}
+.field input,.field select,.field textarea{background:var(--card2);border:1px solid var(--border);border-radius:var(--r);color:var(--text);font-family:var(--mono);font-size:13px;padding:7px 10px;width:100%;outline:none;transition:border-color 0.15s;-webkit-appearance:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green);background:#fff}
+.field select{cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239a9790'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center;padding-right:28px}
+.field select option{background:#fff}
+.field textarea{resize:vertical;min-height:60px;line-height:1.5;font-size:12px}
+.field input[readonly]{color:var(--green);cursor:default;background:var(--green-bg);border-color:var(--green-bd)}
+
+/* COMMENTARY */
+.comment-block{background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:8px}
+.comment-block:last-child{margin-bottom:0}
+.comment-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.comment-time{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--blue);letter-spacing:0.06em;display:flex;align-items:center;gap:6px}
+.comment-time::before{content:'';width:3px;height:3px;border-radius:50%;background:var(--blue)}
+.comment-saved{font-family:var(--mono);font-size:9px;color:var(--green);display:none}
+.comment-saved.show{display:block}
+.btn-save-comment{padding:4px 12px;font-size:10px;font-weight:500;font-family:var(--mono);border-radius:20px;cursor:pointer;border:1px solid var(--blue-bd);background:var(--blue-bg);color:var(--blue);letter-spacing:0.04em;transition:all 0.15s}
+.btn-save-comment:hover{background:var(--blue);color:#fff}
+.btn-save-comment.saved{border-color:var(--green-bd);background:var(--green-bg);color:var(--green)}
+
+/* SEG */
+.seg{display:flex;border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.seg button{flex:1;padding:7px 4px;font-size:11px;font-weight:500;font-family:var(--mono);background:transparent;border:none;cursor:pointer;color:var(--text3);transition:all 0.15s;letter-spacing:0.04em}
+.seg button+button{border-left:1px solid var(--border)}
+.seg button:hover{background:var(--card2);color:var(--text2)}
+.seg button.bull{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.seg button.bear{background:var(--red-bg);color:var(--red);border-color:var(--red-bd)}
+.seg button.neutral{background:var(--card2);color:var(--text2)}
+.seg button.w{background:var(--green-bg);color:var(--green)}
+.seg button.l{background:var(--red-bg);color:var(--red)}
+.seg button.pending{background:var(--card2);color:var(--text2)}
+
+/* SHAPES */
+.shape-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.shape-btn{background:var(--card2);border:1px solid var(--border);border-radius:var(--r);padding:8px 4px 6px;font-size:10px;font-family:var(--mono);color:var(--text3);cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:5px;transition:all 0.15s}
+.shape-btn:hover{border-color:var(--border2);color:var(--text2)}
+.shape-btn.active{border-color:var(--green);background:var(--green-bg);color:var(--green)}
+.shape-btn.active-bear{border-color:var(--red);background:var(--red-bg);color:var(--red)}
+
+/* CHECKLIST */
+.checklist{display:flex;flex-direction:column;gap:2px}
+.chk{display:flex;align-items:flex-start;gap:9px;padding:6px 8px;border-radius:8px;cursor:pointer;user-select:none;transition:background 0.1s}
+.chk:hover{background:var(--card2)}
+.chk .box{width:15px;height:15px;border:1.5px solid var(--border2);border-radius:3px;flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--green);transition:all 0.15s}
+.chk.done .box{background:var(--green-bg);border-color:var(--green)}
+.chk .tick{display:none}
+.chk.done .tick{display:block}
+.chk .lbl{font-size:13px;color:var(--text2);line-height:1.5}
+.chk.done .lbl{color:var(--text3);text-decoration:line-through}
+.prog-wrap{height:2px;background:var(--border);border-radius:1px;margin-top:8px;overflow:hidden}
+.prog-bar{height:2px;background:var(--green);border-radius:1px;transition:width 0.3s;width:0%}
+
+/* BIAS */
+.bias-disp{border-radius:var(--r);padding:8px 14px;font-family:var(--mono);font-size:12px;font-weight:500;text-align:center;margin-top:8px;border:1px solid var(--border);color:var(--text3);background:var(--card2);transition:all 0.2s}
+.bias-disp.bull{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.bias-disp.bear{background:var(--red-bg);color:var(--red);border-color:var(--red-bd)}
+.bias-disp.notrade{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}
+
+/* CALC */
+.calc-note{background:var(--blue-bg);border:1px solid var(--blue-bd);border-radius:var(--r);padding:6px 10px;font-family:var(--mono);font-size:10px;color:var(--blue);margin-top:6px}
+
+/* IMG */
+.img-area{border:1.5px dashed var(--border2);border-radius:var(--r);padding:10px;text-align:center;cursor:pointer;position:relative;background:var(--card);transition:all 0.15s;margin-top:6px}
+.img-area:hover{border-color:var(--green);background:var(--green-bg)}
+.img-area input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.img-area-label{font-family:var(--mono);font-size:11px;color:var(--text3);pointer-events:none}
+.img-area-label span{color:var(--green)}
+.img-previews{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.img-thumb{position:relative}
+.img-thumb img{width:72px;height:54px;object-fit:cover;border-radius:6px;border:1px solid var(--border);display:block;cursor:zoom-in}
+.img-del{position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;border:none;border-radius:50%;width:15px;height:15px;font-size:8px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* BUTTONS */
+.action-row{display:flex;gap:8px;margin-top:12px}
+.btn{padding:9px 18px;font-size:12px;font-weight:500;font-family:var(--mono);border-radius:var(--r);cursor:pointer;border:1px solid var(--border2);background:var(--card);color:var(--text2);letter-spacing:0.04em;transition:all 0.15s}
+.btn:hover{background:var(--card2);color:var(--text)}
+.btn-save{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-save:hover{background:#1f6045}
+.btn-save.bt{background:var(--amber);border-color:var(--amber)}
+.btn-save.bt:hover{background:#7a4a18}
+.divider{border:none;border-top:1px solid var(--border);margin:8px 0}
+
+/* LOG */
+.log-sec{margin-top:2rem}
+.log-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+.log-title{font-family:var(--mono);font-size:10px;font-weight:500;color:var(--text3);letter-spacing:0.1em;text-transform:uppercase}
+.log-tabs{display:flex;gap:5px}
+.log-tab{font-family:var(--mono);font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);background:var(--card);color:var(--text3);cursor:pointer;transition:all 0.15s}
+.log-tab.a-all{background:var(--card2);color:var(--text2);border-color:var(--border2)}
+.log-tab.a-live{background:var(--green-bg);color:var(--green);border-color:var(--green-bd)}
+.log-tab.a-bt{background:var(--amber-bg);color:var(--amber);border-color:var(--amber-bd)}
+.log-entry{background:var(--card);border:1px solid var(--border);border-radius:var(--rl);padding:11px 14px;margin-bottom:7px;transition:border-color 0.15s}
+.log-entry:hover{border-color:var(--border2)}
+.le-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.le-left{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.le-date{font-family:var(--mono);font-size:11px;color:var(--text3);font-weight:500}
+.tag{font-size:10px;font-weight:500;font-family:var(--mono);padding:2px 8px;border-radius:20px;letter-spacing:0.04em}
+.t-bull{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.t-bear{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)}
+.t-neu{background:var(--card2);color:var(--text3);border:1px solid var(--border)}
+.t-win{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.t-loss{background:var(--red-bg);color:var(--red);border:1px solid var(--red-bd)}
+.t-shape{background:var(--card2);color:var(--text2);border:1px solid var(--border)}
+.t-info{background:var(--card2);color:var(--text3);border:1px solid var(--border)}
+.t-live{background:var(--green-bg);color:var(--green);border:1px solid var(--green-bd)}
+.t-bt{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-bd)}
+.r-pos{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--green)}
+.r-neg{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--red)}
+.le-narr{font-size:13px;color:var(--text);line-height:1.5;margin-bottom:3px}
+.le-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.le-del{background:none;border:none;cursor:pointer;color:var(--text3);font-size:14px;padding:2px;transition:color 0.12s;font-family:var(--mono)}
+.le-del:hover{color:var(--red)}
+.le-imgs{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.le-img{width:80px;height:60px;object-fit:cover;border-radius:6px;border:1px solid var(--border);cursor:zoom-in}
+.le-img:hover{opacity:0.85}
+.le-comments{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.le-cmt{background:var(--card2);border-radius:8px;padding:8px 10px}
+.le-cmt-time{font-family:var(--mono);font-size:9px;font-weight:500;color:var(--blue);letter-spacing:0.06em;margin-bottom:3px}
+.le-cmt-text{font-size:12px;color:var(--text2);line-height:1.5}
+.le-cmt-imgs{display:flex;gap:5px;flex-wrap:wrap;margin-top:5px}
+.empty-log{text-align:center;padding:3rem 1rem;color:var(--text3);font-family:var(--mono);font-size:11px;letter-spacing:0.04em}
+.loading-log{text-align:center;padding:2rem;color:var(--text3);font-family:var(--mono);font-size:11px}
+
+/* LB */
+.lb{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:100;align-items:center;justify-content:center;cursor:zoom-out}
+.lb.open{display:flex}
+.lb img{max-width:95vw;max-height:92vh;object-fit:contain;border-radius:6px}
+.lb-x{position:fixed;top:14px;right:18px;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;opacity:0.7;font-family:var(--mono)}
+.lb-x:hover{opacity:1}
+
+@media(max-width:520px){
+  .row.c2,.row.c3{grid-template-columns:1fr}
+  .shape-grid{grid-template-columns:repeat(2,1fr)}
+  .header{flex-direction:column}
+  .clocks{justify-content:flex-start}
+  .dash-grid{grid-template-columns:1fr}
+  .metrics{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div class="sync-bar" id="sync-bar"></div>
+<div class="lb" id="lb" onclick="closeLb()">
+  <button class="lb-x" onclick="closeLb()">✕</button>
+  <img id="lb-img" src="" alt="">
+</div>
+
+<div class="layout">
+
+<!-- HEADER -->
+<div class="header">
+  <div>
+    <h1>US100 <span>//</span> Trading Journal</h1>
+    <div class="header-sub">NY Open · Volume Profile Strategy</div>
+  </div>
+  <div class="header-right">
+    <div class="clocks">
+      <div class="clock-block">
+        <div class="clock-label">Mauritius</div>
+        <span class="clock-time" id="mu-t">--:--</span>
+        <div class="clock-date" id="mu-d">--</div>
+      </div>
+      <div class="clock-div"></div>
+      <div class="clock-block">
+        <div class="clock-label">New York</div>
+        <span class="clock-time ny" id="ny-t">--:--</span>
+        <div class="clock-date" id="ny-d">--</div>
+      </div>
+    </div>
+    <div class="sync-status">
+      <div class="sync-dot" id="sync-dot"></div>
+      <span id="sync-txt">connecting...</span>
+    </div>
+  </div>
+</div>
+
+<!-- MODE -->
+<div class="mode-row">
+  <div class="mode-toggle">
+    <button class="mode-btn" id="btn-live" onclick="setMode('live')">▶ Live</button>
+    <button class="mode-btn" id="btn-bt" onclick="setMode('bt')">⏪ Backtest</button>
+  </div>
+  <span class="mode-tag" id="mode-tag">LIVE</span>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dash">
+  <div class="dash-grid">
+    <div>
+      <canvas id="pie" width="90" height="90"></canvas>
+      <div class="pie-legend">
+        <div class="pie-leg"><div class="pie-dot" style="background:var(--green)"></div>W</div>
+        <div class="pie-leg"><div class="pie-dot" style="background:var(--red)"></div>L</div>
+      </div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="metric-label">Win Rate</div><div class="metric-val" id="m-wr">—</div><div class="metric-sub" id="m-wl">0W 0L</div></div>
+      <div class="metric"><div class="metric-label">P&amp;L</div><div class="metric-val" id="m-pnl">—</div><div class="metric-sub">total %</div></div>
+      <div class="metric"><div class="metric-label">Prof. Factor</div><div class="metric-val" id="m-pf">—</div><div class="metric-sub">W÷L</div></div>
+      <div class="metric"><div class="metric-label">Avg R:R</div><div class="metric-val" id="m-rr">—</div><div class="metric-sub">realised</div></div>
+      <div class="metric"><div class="metric-label">Avg SL</div><div class="metric-val" id="m-sl">—</div><div class="metric-sub">points</div></div>
+      <div class="metric"><div class="metric-label">Sessions</div><div class="metric-val" id="m-n">0</div><div class="metric-sub">traded</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- DAY COMMENTARY -->
+<div class="card">
+  <div class="card-label cl-blue">Day commentary — price narrative</div>
+
+  <!-- 10:00 -->
+  <div class="comment-block">
+    <div class="comment-header">
+      <div class="comment-time">10:00 GMT+4</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="comment-saved" id="saved-c1000">✓ saved</span>
+        <button class="btn-save-comment" id="btn-c1000" onclick="saveComment('c1000')">Save</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:6px">
+      <textarea id="c1000" placeholder="What is price doing? Where is it relative to overnight levels?"></textarea>
+    </div>
+    <div class="img-area">
+      <input type="file" accept="image/*" multiple onchange="addCommentImgs(this,'ci1000')">
+      <div class="img-area-label">Add screenshot · <span>browse</span></div>
+    </div>
+    <div class="img-previews" id="ci1000-prev"></div>
+  </div>
+
+  <!-- 13:00 -->
+  <div class="comment-block">
+    <div class="comment-header">
+      <div class="comment-time">13:00 GMT+4</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="comment-saved" id="saved-c1300">✓ saved</span>
+        <button class="btn-save-comment" id="btn-c1300" onclick="saveComment('c1300')">Save</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:6px">
+      <textarea id="c1300" placeholder="Price update — has direction clarified? Any HVN/LVN interaction?"></textarea>
+    </div>
+    <div class="img-area">
+      <input type="file" accept="image/*" multiple onchange="addCommentImgs(this,'ci1300')">
+      <div class="img-area-label">Add screenshot · <span>browse</span></div>
+    </div>
+    <div class="img-previews" id="ci1300-prev"></div>
+  </div>
+
+  <!-- 15:00 -->
+  <div class="comment-block">
+    <div class="comment-header">
+      <div class="comment-time">15:00 GMT+4 — final read</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="comment-saved" id="saved-c1500">✓ saved</span>
+        <button class="btn-save-comment" id="btn-c1500" onclick="saveComment('c1500')">Save</button>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:6px">
+      <textarea id="c1500" placeholder="Final picture before the open. Overall bias? Where is price vs overnight POC?"></textarea>
+    </div>
+    <div class="img-area">
+      <input type="file" accept="image/*" multiple onchange="addCommentImgs(this,'ci1500')">
+      <div class="img-area-label">Add screenshot · <span>browse</span></div>
+    </div>
+    <div class="img-previews" id="ci1500-prev"></div>
+  </div>
+</div>
+
+<!-- OVERNIGHT -->
+<div class="card">
+  <div class="card-label cl-blue">Overnight profile (18:00 → 17:30 GMT+4)</div>
+  <div class="row c2">
+    <div class="field">
+      <label>Session date</label>
+      <input type="date" id="s-date">
+    </div>
+    <div class="field">
+      <label>HVN position</label>
+      <select id="hvn">
+        <option value="">— select —</option>
+        <option value="low">Low → bullish lean</option>
+        <option value="mid">Mid / balanced</option>
+        <option value="high">High → bearish lean</option>
+      </select>
+    </div>
+  </div>
+  <div class="field">
+    <label>Pre-bias</label>
+    <div class="seg">
+      <button onclick="setBias('bull')" id="b-bull">▲ Bullish</button>
+      <button onclick="setBias('neutral')" id="b-neu">— Neutral</button>
+      <button onclick="setBias('bear')" id="b-bear">▼ Bearish</button>
+    </div>
+  </div>
+</div>
+
+<!-- OPENING RANGE -->
+<div class="card">
+  <div class="card-label cl-amber">Opening range (17:30 → 18:00 GMT+4) — observe only</div>
+  <div class="field" style="margin-bottom:10px">
+    <label>Profile shape</label>
+    <div class="shape-grid">
+      <button class="shape-btn" onclick="setShape('b')" id="sh-b">
+        <svg width="32" height="48" viewBox="0 0 32 48" fill="none">
+          <rect x="2" y="37" width="28" height="5" rx="1.5" fill="#2a7a5a" opacity="0.9"/><line x1="2" y1="39.5" x2="31" y2="39.5" stroke="#b83030" stroke-width="1.5"/>
+          <rect x="2" y="30" width="20" height="5" rx="1.5" fill="#3a7ad5" opacity="0.55"/>
+          <rect x="2" y="23" width="13" height="5" rx="1.5" fill="#3a7ad5" opacity="0.38"/>
+          <rect x="2" y="16" width="8" height="5" rx="1.5" fill="#3a7ad5" opacity="0.25"/>
+          <rect x="2" y="9" width="5" height="5" rx="1.5" fill="#3a7ad5" opacity="0.15"/>
+          <rect x="2" y="2" width="3" height="5" rx="1.5" fill="#3a7ad5" opacity="0.08"/>
+        </svg>b-shape
+      </button>
+      <button class="shape-btn" onclick="setShape('P')" id="sh-P">
+        <svg width="32" height="48" viewBox="0 0 32 48" fill="none">
+          <rect x="2" y="2" width="28" height="5" rx="1.5" fill="#b83030" opacity="0.9"/><line x1="2" y1="4.5" x2="31" y2="4.5" stroke="#b83030" stroke-width="1.5"/>
+          <rect x="2" y="9" width="20" height="5" rx="1.5" fill="#3a7ad5" opacity="0.55"/>
+          <rect x="2" y="16" width="13" height="5" rx="1.5" fill="#3a7ad5" opacity="0.38"/>
+          <rect x="2" y="23" width="8" height="5" rx="1.5" fill="#3a7ad5" opacity="0.25"/>
+          <rect x="2" y="30" width="5" height="5" rx="1.5" fill="#3a7ad5" opacity="0.15"/>
+          <rect x="2" y="37" width="3" height="5" rx="1.5" fill="#3a7ad5" opacity="0.08"/>
+          <rect x="2" y="44" width="2" height="5" rx="1.5" fill="#3a7ad5" opacity="0.05"/>
+        </svg>P-shape
+      </button>
+      <button class="shape-btn" onclick="setShape('D')" id="sh-D">
+        <svg width="32" height="48" viewBox="0 0 32 48" fill="none">
+          <rect x="2" y="2" width="7" height="5" rx="1.5" fill="#3a7ad5" opacity="0.18"/>
+          <rect x="2" y="9" width="14" height="5" rx="1.5" fill="#3a7ad5" opacity="0.35"/>
+          <rect x="2" y="16" width="22" height="5" rx="1.5" fill="#3a7ad5" opacity="0.58"/>
+          <rect x="2" y="23" width="28" height="5" rx="1.5" fill="#3a7ad5" opacity="0.82"/><line x1="2" y1="25.5" x2="31" y2="25.5" stroke="#b83030" stroke-width="1.5"/>
+          <rect x="2" y="30" width="22" height="5" rx="1.5" fill="#3a7ad5" opacity="0.58"/>
+          <rect x="2" y="37" width="14" height="5" rx="1.5" fill="#3a7ad5" opacity="0.35"/>
+          <rect x="2" y="44" width="7" height="5" rx="1.5" fill="#3a7ad5" opacity="0.18"/>
+        </svg>D-shape
+      </button>
+      <button class="shape-btn" onclick="setShape('B')" id="sh-B">
+        <svg width="32" height="48" viewBox="0 0 32 48" fill="none">
+          <rect x="2" y="2" width="24" height="5" rx="1.5" fill="#3a7ad5" opacity="0.78"/><line x1="2" y1="4.5" x2="27" y2="4.5" stroke="#b83030" stroke-width="1.5"/>
+          <rect x="2" y="9" width="16" height="5" rx="1.5" fill="#3a7ad5" opacity="0.48"/>
+          <rect x="2" y="16" width="7" height="5" rx="1.5" fill="#3a7ad5" opacity="0.2"/>
+          <rect x="2" y="23" width="5" height="5" rx="1.5" fill="#3a7ad5" opacity="0.12"/>
+          <rect x="2" y="30" width="7" height="5" rx="1.5" fill="#3a7ad5" opacity="0.2"/>
+          <rect x="2" y="37" width="18" height="5" rx="1.5" fill="#3a7ad5" opacity="0.52"/>
+          <rect x="2" y="44" width="26" height="5" rx="1.5" fill="#3a7ad5" opacity="0.78"/><line x1="2" y1="46.5" x2="29" y2="46.5" stroke="#b83030" stroke-width="1.5"/>
+        </svg>B-shape
+      </button>
+    </div>
+  </div>
+  <div class="field">
+    <label>10:00 POC vs overnight POC</label>
+    <select id="poc">
+      <option value="">— select —</option>
+      <option value="above">Above overnight POC — bullish ✓</option>
+      <option value="below">Below overnight POC — bearish ✓</option>
+      <option value="same">Same level — no edge, no trade</option>
+    </select>
+  </div>
+</div>
+
+<!-- CHECKLIST -->
+<div class="card">
+  <div class="card-label cl-green">Entry checklist — all must be true</div>
+  <div class="checklist" id="chks">
+    <div class="chk" onclick="tick(this)"><span class="box"><span class="tick">✓</span></span><span class="lbl">Overnight and opening profile <strong>agree on direction</strong></span></div>
+    <div class="chk" onclick="tick(this)"><span class="box"><span class="tick">✓</span></span><span class="lbl">10:00 POC is <strong>above or below</strong> overnight POC — not same level</span></div>
+    <div class="chk" onclick="tick(this)"><span class="box"><span class="tick">✓</span></span><span class="lbl">Shape is <strong>b or D</strong> — or B holding one POC with conviction</span></div>
+    <div class="chk" onclick="tick(this)"><span class="box"><span class="tick">✓</span></span><span class="lbl">Entry candle forming <strong>at or near POC/HVN</strong> — not extended</span></div>
+    <div class="chk" onclick="tick(this)"><span class="box"><span class="tick">✓</span></span><span class="lbl">Clean <strong>5m close</strong> in trade direction — no doji, no heavy wick</span></div>
+    <div class="chk" onclick="tick(this)"><span class="box"><span class="tick">✓</span></span><span class="lbl">Path to TP is <strong>clean LVZ</strong> — no major HVN blocking it</span></div>
+  </div>
+  <div class="prog-wrap"><div class="prog-bar" id="prog"></div></div>
+</div>
+
+<!-- TRADE -->
+<div class="card">
+  <div class="card-label cl-red">Trade</div>
+  <div class="row c2" style="margin-bottom:10px">
+    <div class="field">
+      <label>Account size ($)</label>
+      <input type="number" id="acct" placeholder="10000" oninput="calc()" value="10000">
+    </div>
+    <div class="field">
+      <label>Direction</label>
+      <select id="dir" onchange="updateDisp()">
+        <option value="">— select —</option>
+        <option value="Long">Long</option>
+        <option value="Short">Short</option>
+        <option value="No trade">No trade</option>
+      </select>
+    </div>
+  </div>
+  <div class="row c3" style="margin-bottom:6px">
+    <div class="field">
+      <label>SL (points)</label>
+      <input type="number" id="sl" placeholder="e.g. 50" oninput="calc()">
+    </div>
+    <div class="field">
+      <label>TP (auto)</label>
+      <input type="text" id="tp" readonly placeholder="—">
+    </div>
+    <div class="field">
+      <label>Lot size (auto)</label>
+      <input type="text" id="lots" readonly placeholder="—">
+    </div>
+  </div>
+  <div class="calc-note" id="calc-note">Enter account size and SL to calculate lot size</div>
+  <div class="divider"></div>
+  <div class="row c2" style="margin-bottom:10px">
+    <div class="field">
+      <label>Return %</label>
+      <input type="number" id="ret" placeholder="e.g. 2.0" step="0.1">
+    </div>
+    <div class="field">
+      <label>Outcome</label>
+      <div class="seg">
+        <button onclick="setWL('W')" id="wl-w">▲ Win</button>
+        <button onclick="setWL('L')" id="wl-l">▼ Loss</button>
+        <button onclick="setWL('')" id="wl-p">— Pending</button>
+      </div>
+    </div>
+  </div>
+  <div class="field" style="margin-bottom:10px">
+    <label>Trade screenshots</label>
+    <div class="img-area">
+      <input type="file" id="img-in" accept="image/*" multiple onchange="addImgs(this)">
+      <div class="img-area-label">Tap to add screenshots · <span>browse</span></div>
+    </div>
+    <div class="img-previews" id="img-prev"></div>
+  </div>
+  <div class="field">
+    <label>Final conviction</label>
+    <textarea id="conviction" placeholder="One sentence — your read and why you're taking the trade." style="min-height:44px"></textarea>
+  </div>
+  <div class="bias-disp" id="bias-disp">Awaiting direction</div>
+</div>
+
+<div class="action-row">
+  <button class="btn btn-save" id="save-btn" onclick="saveSession()">Save session</button>
+  <button class="btn" onclick="clearForm()">Clear</button>
+</div>
+
+<!-- LOG -->
+<div class="log-sec">
+  <div class="log-top">
+    <div class="log-title">Session log</div>
+    <div class="log-tabs">
+      <button class="log-tab" id="tab-all" onclick="setFilter('all')">All</button>
+      <button class="log-tab" id="tab-live" onclick="setFilter('live')">▶ Live</button>
+      <button class="log-tab" id="tab-bt" onclick="setFilter('bt')">⏪ BT</button>
+    </div>
+  </div>
+  <div id="log"><div class="loading-log">connecting to database...</div></div>
+</div>
+
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, getDocs, deleteDoc, query, orderBy, onSnapshot, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBoVy8mC8GLvY_rOoYQmhiju3slqHjmFl8",
+  authDomain: "trading-c253c.firebaseapp.com",
+  projectId: "trading-c253c",
+  storageBucket: "trading-c253c.firebasestorage.app",
+  messagingSenderId: "856978440316",
+  appId: "1:856978440316:web:59512716c8cafaeaf209f9"
+};
+
+const app = initializeApp(firebaseConfig);
+const db  = getFirestore(app);
+const COL = 'journal';
+
+let entries = [];
+let mode = 'live', filter = 'all', bias = '', shape = '', wl = '';
+let pendImgs = [];
+let pendCommentImgs = { ci1000: [], ci1300: [], ci1500: [] };
+
+/* SYNC STATUS */
+function syncStatus(s, txt) {
+  const bar = document.getElementById('sync-bar');
+  const dot = document.getElementById('sync-dot');
+  const t   = document.getElementById('sync-txt');
+  bar.className = 'sync-bar ' + s;
+  dot.className = 'sync-dot ' + (s === 'synced' ? 'ok' : s === 'syncing' ? 'syncing' : 'err');
+  t.textContent = txt;
+  if (s === 'synced') setTimeout(() => { bar.className = 'sync-bar'; }, 2000);
+}
+
+/* REALTIME LISTENER */
+const q = query(collection(db, COL), orderBy('id', 'desc'));
+onSnapshot(q,
+  snap => {
+    entries = snap.docs.map(d => ({ ...d.data(), _docId: d.id }));
+    syncStatus('synced', 'synced');
+    renderDash(); renderLog();
+  },
+  err => { syncStatus('error', 'offline'); console.error(err); }
+);
+
+/* CLOCK */
+function tickClock() {
+  const now = new Date();
+  const f = (tz, ti, di) => {
+    document.getElementById(ti).textContent = now.toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    document.getElementById(di).textContent = now.toLocaleDateString('en-GB', { timeZone: tz, weekday: 'short', day: 'numeric', month: 'short' });
+  };
+  f('Indian/Mauritius', 'mu-t', 'mu-d');
+  f('America/New_York', 'ny-t', 'ny-d');
+}
+tickClock(); setInterval(tickClock, 1000);
+
+/* GET TODAY'S DOC ID */
+function getTodayDocId() {
+  const date = document.getElementById('s-date').value || new Date().toISOString().split('T')[0];
+  return date + '_' + mode;
+}
+
+/* SAVE COMMENT — saves immediately to Firebase by date */
+window.saveComment = async function(slot) {
+  const docId = getTodayDocId();
+  const text  = document.getElementById(slot).value.trim();
+  const imgs  = [...pendCommentImgs['ci' + slot.replace('c','')]];
+  const key   = slot.replace('c','');
+
+  if (!text && !imgs.length) {
+    alert('Add a comment or screenshot first.');
+    return;
+  }
+
+  syncStatus('syncing', 'saving...');
+  try {
+    const ref  = doc(db, COL, docId);
+    const snap = await getDoc(ref);
+    const date = document.getElementById('s-date').value || new Date().toISOString().split('T')[0];
+
+    if (snap.exists()) {
+      // Update existing doc
+      await updateDoc(ref, {
+        [slot]: text,
+        ['ci' + key + '_imgs']: imgs
+      });
+    } else {
+      // Create new doc for this date
+      await setDoc(ref, {
+        id: Date.now(),
+        mode, date,
+        [slot]: text,
+        ['ci' + key + '_imgs']: imgs,
+        // placeholders for later fields
+        hvn: '', bias: '', shape: '', poc: '', dir: '', sl: '', tp_pts: '',
+        lots: '', ret: '', wl: '', conviction: '', checks: 0, total: 6, imgs: [],
+        c1000: '', c1300: '', c1500: '',
+        ci1000_imgs: [], ci1300_imgs: [], ci1500_imgs: []
+      });
+    }
+
+    syncStatus('synced', 'saved ✓');
+    // Show saved indicator
+    const savedEl = document.getElementById('saved-' + slot);
+    const btnEl   = document.getElementById('btn-' + slot);
+    if (savedEl) { savedEl.classList.add('show'); setTimeout(() => savedEl.classList.remove('show'), 3000); }
+    if (btnEl)   btnEl.className = 'btn-save-comment saved';
+
+  } catch (err) {
+    syncStatus('error', 'save failed');
+    console.error(err);
+    alert('Save failed. Check connection.');
+  }
+};
+
+/* SAVE SESSION — adds trade data to existing or new doc */
+window.saveSession = async function() {
+  const date = document.getElementById('s-date').value;
+  const dir  = document.getElementById('dir').value;
+  if (!date || !dir) { alert('Set the date and direction before saving.'); return; }
+
+  syncStatus('syncing', 'saving...');
+  const docId  = getTodayDocId();
+  const ref    = doc(db, COL, docId);
+  const snap   = await getDoc(ref);
+  const slVal  = document.getElementById('sl').value;
+
+  const tradeData = {
+    id: snap.exists() ? snap.data().id : Date.now(),
+    mode, date, bias,
+    hvn:        document.getElementById('hvn').value,
+    shape, poc: document.getElementById('poc').value,
+    dir, sl: slVal,
+    tp_pts:     slVal ? String(Math.round(+slVal * 2)) : '',
+    lots:       document.getElementById('lots').value,
+    ret:        document.getElementById('ret').value,
+    wl,
+    conviction: document.getElementById('conviction').value.trim(),
+    checks:     document.querySelectorAll('#chks .chk.done').length,
+    total:      document.querySelectorAll('#chks .chk').length,
+    imgs:       [...pendImgs]
+  };
+
+  try {
+    if (snap.exists()) {
+      await updateDoc(ref, tradeData);
+    } else {
+      await setDoc(ref, {
+        ...tradeData,
+        c1000: '', c1300: '', c1500: '',
+        ci1000_imgs: [], ci1300_imgs: [], ci1500_imgs: []
+      });
+    }
+    syncStatus('synced', 'saved ✓');
+    pendImgs = []; renderPrev();
+    clearForm();
+  } catch (err) {
+    syncStatus('error', 'save failed');
+    console.error(err);
+    alert('Save failed. Check connection.');
+  }
+};
+
+/* DELETE */
+window.delEntry = async function(docId) {
+  if (!confirm('Delete this session?')) return;
+  syncStatus('syncing', 'deleting...');
+  try {
+    await deleteDoc(doc(db, COL, docId));
+    syncStatus('synced', 'deleted');
+  } catch (err) {
+    syncStatus('error', 'delete failed');
+  }
+};
+
+/* MODE */
+window.setMode = function(m) {
+  mode = m;
+  document.getElementById('btn-live').className = 'mode-btn' + (m === 'live' ? ' live' : '');
+  document.getElementById('btn-bt').className   = 'mode-btn' + (m === 'bt'   ? ' bt'   : '');
+  document.getElementById('mode-tag').textContent = m === 'live' ? 'LIVE' : 'BACKTEST';
+  document.getElementById('mode-tag').className  = 'mode-tag ' + m;
+  document.getElementById('save-btn').className  = 'btn btn-save' + (m === 'bt' ? ' bt' : '');
+  document.getElementById('save-btn').textContent = m === 'live' ? 'Save session' : 'Save backtest';
+  renderDash(); renderLog();
+};
+
+/* PIE */
+function drawPie(W, L) {
+  const c = document.getElementById('pie'), ctx = c.getContext('2d');
+  const cx = 45, cy = 45, r = 38;
+  ctx.clearRect(0, 0, 90, 90);
+  if (!W && !L) {
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fillStyle='#f0efe8'; ctx.fill();
+    ctx.font='9px monospace'; ctx.fillStyle='#9a9790'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('no data',cx,cy); return;
+  }
+  const t=W+L, wa=(W/t)*Math.PI*2;
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+wa); ctx.closePath(); ctx.fillStyle='#2a7a5a'; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,-Math.PI/2+wa,-Math.PI/2+Math.PI*2); ctx.closePath(); ctx.fillStyle='#b83030'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,22,0,Math.PI*2); ctx.fillStyle='#fff'; ctx.fill();
+  ctx.font='bold 12px monospace'; ctx.fillStyle=W>=L?'#2a7a5a':'#b83030'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(W+'-'+L,cx,cy);
+}
+
+/* DASHBOARD */
+function renderDash() {
+  const tr  = entries.filter(e => e.mode===mode && e.dir && e.dir!=='No trade' && e.wl);
+  const W   = tr.filter(e=>e.wl==='W').length, L=tr.filter(e=>e.wl==='L').length, T=tr.length;
+  const wr  = T?Math.round(W/T*100):null;
+  const pnl = tr.reduce((a,e)=>a+(e.ret?(e.wl==='W'?+e.ret:e.wl==='L'?-+e.ret:0):0),0);
+  const gW  = tr.filter(e=>e.wl==='W').reduce((a,e)=>a+(+e.ret||0),0);
+  const gL  = tr.filter(e=>e.wl==='L').reduce((a,e)=>a+(+e.ret||0),0);
+  const pf  = gL>0?(gW/gL):null;
+  const rrv = tr.filter(e=>e.sl&&e.tp_pts).map(e=>+e.tp_pts/+e.sl);
+  const rr  = rrv.length?rrv.reduce((a,b)=>a+b,0)/rrv.length:null;
+  const slv = tr.filter(e=>e.sl).map(e=>+e.sl);
+  const sl  = slv.length?slv.reduce((a,b)=>a+b,0)/slv.length:null;
+  const sv  = (id,v,cls)=>{ const el=document.getElementById(id); el.textContent=v; el.className='metric-val '+cls; };
+  sv('m-wr',  wr!==null?wr+'%':'—', wr>=60?'pos':wr<50?'neg':'');
+  sv('m-pnl', pnl!==0?(pnl>0?'+':'')+pnl.toFixed(1)+'%':'—', pnl>0?'pos':pnl<0?'neg':'');
+  sv('m-pf',  pf!==null?pf.toFixed(2):'—', pf>=1.5?'pos':pf<1?'neg':'');
+  sv('m-rr',  rr!==null?rr.toFixed(2)+'R':'—', rr>=1.5?'pos':rr<1?'neg':'');
+  sv('m-sl',  sl!==null?Math.round(sl)+'pts':'—', '');
+  sv('m-n',   T, '');
+  document.getElementById('m-wl').textContent = W+'W '+L+'L';
+  drawPie(W,L);
+}
+
+/* CALC */
+window.calc = function() {
+  const sl=parseFloat(document.getElementById('sl').value);
+  const acct=parseFloat(document.getElementById('acct').value)||10000;
+  const note=document.getElementById('calc-note');
+  if(!sl||sl<=0){ document.getElementById('tp').value=''; document.getElementById('lots').value=''; note.textContent='Enter SL to calculate'; return; }
+  const tp=Math.round(sl*2), lots=((acct*0.01)/sl).toFixed(2), risk=(acct*0.01).toFixed(0);
+  document.getElementById('tp').value=tp+' pts (2R)';
+  document.getElementById('lots').value=lots;
+  note.textContent='Risking $'+risk+' (1%) · Lots = $'+risk+' ÷ '+sl+' = '+lots;
+};
+
+/* FORM */
+window.setBias = function(v) {
+  bias=v;
+  ['bull','neu','bear'].forEach(b=>document.getElementById('b-'+b).className='');
+  if(v==='bull') document.getElementById('b-bull').className='bull';
+  else if(v==='neutral') document.getElementById('b-neu').className='neutral';
+  else if(v==='bear') document.getElementById('b-bear').className='bear';
+};
+
+window.setShape = function(v) {
+  shape=v;
+  ['b','P','D','B'].forEach(s=>document.getElementById('sh-'+s).className='shape-btn'+(s===v?(s==='P'?' active-bear':' active'):''));
+};
+
+window.setWL = function(v) {
+  wl=v;
+  document.getElementById('wl-w').className=v==='W'?'w':'';
+  document.getElementById('wl-l').className=v==='L'?'l':'';
+  document.getElementById('wl-p').className=v===''?'pending':'';
+};
+
+window.updateDisp = function() {
+  const dir=document.getElementById('dir').value;
+  const el=document.getElementById('bias-disp');
+  el.className='bias-disp';
+  if(dir==='Long'){el.classList.add('bull');el.textContent='▲  LONG — buying the move up';}
+  else if(dir==='Short'){el.classList.add('bear');el.textContent='▼  SHORT — selling the move down';}
+  else if(dir==='No trade'){el.classList.add('notrade');el.textContent='—  No trade today';}
+  else el.textContent='Awaiting direction';
+};
+
+window.tick = function(el) {
+  el.classList.toggle('done');
+  const t=document.querySelectorAll('#chks .chk').length, d=document.querySelectorAll('#chks .chk.done').length;
+  document.getElementById('prog').style.width=Math.round(d/t*100)+'%';
+};
+
+/* IMAGES */
+window.addImgs = function(inp) {
+  Array.from(inp.files).forEach(f=>{ const r=new FileReader(); r.onload=e=>{ pendImgs.push(e.target.result); renderPrev(); }; r.readAsDataURL(f); });
+  inp.value='';
+};
+
+function renderPrev() {
+  document.getElementById('img-prev').innerHTML=pendImgs.map((s,i)=>
+    `<div class="img-thumb"><img src="${s}" onclick="openLb('${s}')"><button class="img-del" onclick="delImg(${i})">✕</button></div>`
+  ).join('');
+}
+
+window.delImg = function(i) { pendImgs.splice(i,1); renderPrev(); };
+
+window.addCommentImgs = function(inp, key) {
+  Array.from(inp.files).forEach(f=>{ const r=new FileReader(); r.onload=e=>{ pendCommentImgs[key].push(e.target.result); renderCommentPrev(key); }; r.readAsDataURL(f); });
+  inp.value='';
+};
+
+function renderCommentPrev(key) {
+  const el=document.getElementById(key+'-prev');
+  if(!el) return;
+  el.innerHTML=pendCommentImgs[key].map((s,i)=>
+    `<div class="img-thumb"><img src="${s}" onclick="openLb('${s}')"><button class="img-del" onclick="delCommentImg('${key}',${i})">✕</button></div>`
+  ).join('');
+}
+
+window.delCommentImg = function(key,i) { pendCommentImgs[key].splice(i,1); renderCommentPrev(key); };
+window.openLb = function(s) { document.getElementById('lb-img').src=s; document.getElementById('lb').classList.add('open'); };
+window.closeLb = function() { document.getElementById('lb').classList.remove('open'); document.getElementById('lb-img').src=''; };
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') window.closeLb(); });
+
+/* CLEAR */
+window.clearForm = function() {
+  ['hvn','poc','dir','sl','ret'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  ['c1000','c1300','c1500','conviction'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('tp').value=''; document.getElementById('lots').value='';
+  document.getElementById('calc-note').textContent='Enter account size and SL to calculate lot size';
+  document.getElementById('prog').style.width='0%';
+  document.querySelectorAll('#chks .chk.done').forEach(el=>el.classList.remove('done'));
+  bias=''; shape=''; wl=''; pendImgs=[];
+  pendCommentImgs={ ci1000:[], ci1300:[], ci1500:[] };
+  ['ci1000','ci1300','ci1500'].forEach(k=>renderCommentPrev(k));
+  ['btn-c1000','btn-c1300','btn-c1500'].forEach(id=>{ const el=document.getElementById(id); if(el) el.className='btn-save-comment'; });
+  ['bull','neu','bear'].forEach(b=>document.getElementById('b-'+b).className='');
+  ['b','P','D','B'].forEach(s=>document.getElementById('sh-'+s).className='shape-btn');
+  window.setWL(''); window.updateDisp(); renderPrev();
+  document.getElementById('s-date').value=new Date().toISOString().split('T')[0];
+};
+
+/* FILTER */
+window.setFilter = function(f) {
+  filter=f;
+  ['all','live','bt'].forEach(t=>document.getElementById('tab-'+t).className='log-tab'+(t===f?' a-'+t:''));
+  renderLog();
+};
+
+/* LOG */
+function renderLog() {
+  const el=document.getElementById('log');
+  const list=filter==='all'?entries:entries.filter(e=>e.mode===filter);
+  if(!list.length){ el.innerHTML='<div class="empty-log">no sessions logged yet</div>'; return; }
+  el.innerHTML=list.map(e=>{
+    const bc=e.dir==='Long'?'bull':e.dir==='Short'?'bear':'neu';
+    const ds=e.date?new Date(e.date+'T12:00:00').toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'}):'—';
+    const rv=e.ret?parseFloat(e.ret).toFixed(1):null;
+    const rh=rv?`<span class="${e.wl==='W'?'r-pos':e.wl==='L'?'r-neg':''}">${e.wl==='W'?'+':e.wl==='L'?'-':''}${rv}%</span>`:'';
+    const imgs=e.imgs&&e.imgs.length?`<div class="le-imgs">${e.imgs.map(s=>`<img class="le-img" src="${s}" onclick="openLb('${s}')">`).join('')}</div>`:'';
+    const cimgRow=imgs=>imgs&&imgs.length?`<div class="le-cmt-imgs">${imgs.map(s=>`<img class="le-img" src="${s}" onclick="openLb('${s}')">`).join('')}</div>`:'';
+    const cmts=(e.c1000||e.c1300||e.c1500)?`<div class="le-comments">
+      ${e.c1000?`<div class="le-cmt"><div class="le-cmt-time">10:00 GMT+4</div><div class="le-cmt-text">${e.c1000}</div>${cimgRow(e.ci1000_imgs)}</div>`:''}
+      ${e.c1300?`<div class="le-cmt"><div class="le-cmt-time">13:00 GMT+4</div><div class="le-cmt-text">${e.c1300}</div>${cimgRow(e.ci1300_imgs)}</div>`:''}
+      ${e.c1500?`<div class="le-cmt"><div class="le-cmt-time">15:00 GMT+4 — final</div><div class="le-cmt-text">${e.c1500}</div>${cimgRow(e.ci1500_imgs)}</div>`:''}
+    </div>`:'';
+    return `<div class="log-entry">
+      <div class="le-top">
+        <div class="le-left">
+          <span class="le-date">${ds}</span>
+          <span class="tag t-${e.mode==='live'?'live':'bt'}">${e.mode==='live'?'▶':'⏪'}</span>
+          <span class="tag t-${bc}">${e.dir||'—'}</span>
+          ${e.shape?`<span class="tag t-shape">${e.shape}</span>`:''}
+          ${e.wl==='W'?'<span class="tag t-win">Win</span>':e.wl==='L'?'<span class="tag t-loss">Loss</span>':''}
+          ${rh}
+          ${e.checks?`<span class="tag t-info">${e.checks}/${e.total} ✓</span>`:''}
+        </div>
+        <button class="le-del" onclick="delEntry('${e._docId}')">✕</button>
+      </div>
+      ${e.conviction?`<div class="le-narr">${e.conviction}</div>`:''}
+      ${cmts}
+      <div class="le-meta">
+        ${e.hvn?`<span class="tag t-info">HVN ${e.hvn}</span>`:''}
+        ${e.sl?`<span class="tag t-info">SL ${e.sl}pts</span>`:''}
+        ${e.lots?`<span class="tag t-info">${e.lots} lots</span>`:''}
+      </div>
+      ${imgs}
+    </div>`;
+  }).join('');
+}
+
+/* INIT */
+window.setWL('');
+window.setMode('live');
+window.setFilter('all');
+document.getElementById('s-date').value=new Date().toISOString().split('T')[0];
+</script>
+</body>
+</html>
